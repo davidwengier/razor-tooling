@@ -62,6 +62,53 @@ public class CSharpCodeActionEndToEndTest : SingleServerDelegatingEndpointTestBa
         await ValidateCodeActionAsync(input, "Generate Default Constructors Code Action Provider", expected);
     }
 
+    [Fact]
+    public async Task Handle_GenerateMethod()
+    {
+        var input = """
+
+            <div></div>
+
+            @functions
+            {
+                public void M()
+                {
+                    var x = [|MyFancyMethod|]();
+                }
+
+                public void N()
+                {
+                }
+            }
+
+            """;
+
+        var expected = """
+            
+            <div></div>
+            
+            @functions
+            {
+                public void M()
+                {
+                    var x = MyFancyMethod();
+                }
+
+                private object MyFancyMethod()
+                {
+                    throw new NotImplementedException();
+                }
+
+                public void N()
+                {
+                }
+            }
+
+            """;
+
+        await ValidateCodeActionAsync(input, "GenerateMethod", expected);
+    }
+
     private async Task ValidateCodeActionAsync(string input, string codeAction, string expected)
     {
         TestFileMarkupParser.GetSpan(input, out input, out var textSpan);
@@ -106,9 +153,16 @@ public class CSharpCodeActionEndToEndTest : SingleServerDelegatingEndpointTestBa
         var result = await endpoint.HandleRequestAsync(@params, requestContext, DisposalToken);
 
         Assert.NotNull(result);
-        Assert.NotEmpty(result);
+        if (result.Length == 0)
+        {
+            Assert.Fail("Was not offered any code actions.");
+        }
 
-        var codeActionToRun = (RazorVSInternalCodeAction)result.Single(e => ((RazorVSInternalCodeAction)e.Value!).Name == codeAction);
+        var codeActionToRun = (RazorVSInternalCodeAction)result.FirstOrDefault(e => ((RazorVSInternalCodeAction)e.Value!).Name == codeAction);
+        if (codeActionToRun is null)
+        {
+            Assert.Fail($"Could not find code action '{codeAction}' in list:\n\n{string.Join(Environment.NewLine, result.Select(e => ((RazorVSInternalCodeAction)e.Value!).Name))}");
+        }
 
         var formattingService = await TestRazorFormattingService.CreateWithFullSupportAsync();
 
