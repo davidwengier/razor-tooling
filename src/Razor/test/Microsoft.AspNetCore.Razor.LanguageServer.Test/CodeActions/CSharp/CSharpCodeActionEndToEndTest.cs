@@ -109,6 +109,45 @@ public class CSharpCodeActionEndToEndTest : SingleServerDelegatingEndpointTestBa
         await ValidateCodeActionAsync(input, "GenerateMethod", expected);
     }
 
+    [Fact]
+    public async Task Handle_GenerateMethod_IntoHidden()
+    {
+        var input = """
+
+            <div></div>
+
+            @functions
+            {
+                public void M()
+                {
+                    var x = [|MyFancyMethod|]();
+                }
+            }
+
+            """;
+
+        var expected = """
+            
+            <div></div>
+            
+            @functions
+            {
+                public void M()
+                {
+                    var x = MyFancyMethod();
+                }
+
+                private object MyFancyMethod()
+                {
+                    throw new NotImplementedException();
+                }
+            }
+
+            """;
+
+        await ValidateCodeActionAsync(input, "GenerateMethod", expected);
+    }
+
     private async Task ValidateCodeActionAsync(string input, string codeAction, string expected)
     {
         TestFileMarkupParser.GetSpan(input, out input, out var textSpan);
@@ -143,6 +182,7 @@ public class CSharpCodeActionEndToEndTest : SingleServerDelegatingEndpointTestBa
 
         var @params = new VSCodeActionParams
         {
+            AllowGenerateInHiddenCode = true,
             TextDocument = new VSTextDocumentIdentifier { Uri = uri },
             Range = textSpan.AsRange(sourceText),
             Context = new VSInternalCodeActionContext()
