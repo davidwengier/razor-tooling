@@ -196,7 +196,7 @@ internal class CodeActionEndpoint : IVSCodeActionEndpoint
             return ImmutableArray<RazorVSInternalCodeAction>.Empty;
         }
 
-        var codeActions = await GetCodeActionsFromLanguageServerAsync(languageKind, documentContext, context, logger, cancellationToken).ConfigureAwait(false);
+        var codeActions = await GetCodeActionsFromLanguageServerAsync(languageKind, documentContext, context, logger, cancellationToken);
         if (codeActions is not [_, ..])
         {
             return ImmutableArray<RazorVSInternalCodeAction>.Empty;
