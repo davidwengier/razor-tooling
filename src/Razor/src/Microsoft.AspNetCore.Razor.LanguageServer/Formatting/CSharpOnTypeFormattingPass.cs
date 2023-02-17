@@ -112,18 +112,42 @@ internal class CSharpOnTypeFormattingPass : CSharpFormattingPassBase
             }
         }
 
-        var normalizedEdits = NormalizeTextEdits(csharpText, textEdits, out var originalTextWithChanges);
-        var mappedEdits = RemapTextEdits(codeDocument, normalizedEdits, result.Kind);
-        var filteredEdits = FilterCSharpTextEdits(context, mappedEdits);
-        if (filteredEdits.Length == 0)
+        textEdits = NormalizeTextEdits(csharpText, textEdits, out var originalTextWithChanges);
+        textEdits = RemapTextEdits(codeDocument, textEdits, result.Kind);
+
+        // At this point we have a set of edits we know how to make to a Razor document, but we might have removed some edits during
+        // remapping that we actually want to consider. The problem is these edits were in a region of the C# generated code that we
+        // don't have knowledge of.
+        // To fix this, we apply our remapped edits to get our updated Razor document, generate the C# for it, then apply all of the
+        // C# edits to the original generated code, and then do a comparison of the C# syntax trees to determine what has changed.
+        // Since this requires code generation and parsing syntax trees we only do it if there were any edits that couldn't be remapped.
+        // We also check IsForCodeAction so we only apply this for code actions since we assume regular on type formatting cannot change
+        // an unmappable area of C# in any meaningful way.
+
+        var didAddNewEdits = false;
+        var couldNotRemapAllEdits = true; // TODO: Calculate properly
+        if (couldNotRemapAllEdits && context.AutomaticallyAddUsings)
         {
-            // There are no CSharp edits for us to apply. No op.
-            return new FormattingResult(filteredEdits);
+            // Because we need to parse the C# code twice for this operation, lets do a quick check to see if its even necessary
+            var usingStatementEdits = await AddUsingsCodeActionProviderHelper.GetUsingStatementEditsAsync(codeDocument, csharpText, originalTextWithChanges, cancellationToken);
+            textEdits = usingStatementEdits.Concat(textEdits).ToArray();
+            didAddNewEdits = true;
+        }
+
+        if (!didAddNewEdits)
+        {
+            // If we didn't add any fancy edits, then we can simply no-op if the original edits were all for ignorable areas
+            textEdits = FilterCSharpTextEdits(context, textEdits);
+            if (textEdits.Length == 0)
+            {
+                // There are no CSharp edits for us to apply. No op.
+                return new FormattingResult(textEdits);
+            }
         }
 
         // Find the lines that were affected by these edits.
         var originalText = codeDocument.GetSourceText();
-        var changes = filteredEdits.Select(e => e.AsTextChange(originalText));
+        var changes = textEdits.Select(e => e.AsTextChange(originalText));
 
         // Apply the format on type edits sent over by the client.
         var formattedText = ApplyChangesAndTrackChange(originalText, changes, out _, out var spanAfterFormatting);
@@ -210,12 +234,7 @@ internal class CSharpOnTypeFormattingPass : CSharpFormattingPassBase
 
         if (context.AutomaticallyAddUsings)
         {
-            // Because we need to parse the C# code twice for this operation, lets do a quick check to see if its even necessary
-            if (textEdits.Any(e => e.NewText.IndexOf("using") != -1))
-            {
-                var usingStatementEdits = await AddUsingsCodeActionProviderHelper.GetUsingStatementEditsAsync(codeDocument, csharpText, originalTextWithChanges, cancellationToken);
-                finalEdits = usingStatementEdits.Concat(finalEdits).ToArray();
-            }
+
         }
 
         return new FormattingResult(finalEdits);
