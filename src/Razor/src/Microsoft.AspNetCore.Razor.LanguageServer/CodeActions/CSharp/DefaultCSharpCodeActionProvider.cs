@@ -31,6 +31,7 @@ internal class DefaultCSharpCodeActionProvider : CSharpCodeActionProvider
         RazorPredefinedCodeFixProviderNames.ImplementAbstractClass,
         RazorPredefinedCodeFixProviderNames.ImplementInterface,
         RazorPredefinedCodeFixProviderNames.RemoveUnusedVariable,
+        RazorPredefinedCodeFixProviderNames.GenerateMethod,
     };
 
     // We don't support any code actions in implicit expressions at the moment, but rather than simply returning early
