@@ -11,10 +11,14 @@ namespace Microsoft.AspNetCore.Razor.LanguageServer.EndpointContracts;
 /// converts on read, not write. ie, if it gets a request for a CodeActionParams, it will happily deserialize the Context
 /// property to VSInternalCodeActionContext, but in our case we need to send a request to our CustomMessageTarget, and so
 /// we need the Context property serialized as the internal type.
+/// Additionally we have added the <see cref="AllowGenerateInHiddenCode" /> option, which is honoured by Roslyn, to allow
+/// it to offer code actions it normally wouldn't, because most of the generated C# for a Razor document is hidden.
 /// </summary>
 [DataContract]
 internal class VSCodeActionParams
 {
+    [DataMember(Name = "allowGenerateInHiddenCode")]
+    public bool AllowGenerateInHiddenCode { get; set; } = true;
     //
     // Summary:
     //     Gets or sets the document identifier indicating where the command was invoked.
