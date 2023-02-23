@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Razor.LanguageServer.CodeActions.Models;
 using Microsoft.AspNetCore.Razor.LanguageServer.EndpointContracts;
 using Microsoft.AspNetCore.Razor.LanguageServer.Extensions;
 using Microsoft.AspNetCore.Razor.LanguageServer.Formatting;
+using Microsoft.CodeAnalysis.ExternalAccess.Razor;
 using Microsoft.CodeAnalysis.Razor.Workspaces.Extensions;
 using Microsoft.CodeAnalysis.Testing;
 using Microsoft.CodeAnalysis.Testing.Verifiers;
@@ -63,7 +64,7 @@ public class CSharpCodeActionEndToEndTest : SingleServerDelegatingEndpointTestBa
     }
 
     [Fact]
-    public async Task Handle_GenerateMethod()
+    public async Task Handle_GenerateMethod_BetweenTwoMethods()
     {
         var input = """
 
@@ -73,7 +74,7 @@ public class CSharpCodeActionEndToEndTest : SingleServerDelegatingEndpointTestBa
             {
                 public void M()
                 {
-                    var x = [|MyFancyMethod|]();
+                    this.[|Goo|]();
                 }
 
                 public void N()
@@ -84,17 +85,17 @@ public class CSharpCodeActionEndToEndTest : SingleServerDelegatingEndpointTestBa
             """;
 
         var expected = """
-            
+
             <div></div>
-            
+
             @functions
             {
                 public void M()
                 {
-                    var x = MyFancyMethod();
+                    this.Goo();
                 }
 
-                private object MyFancyMethod()
+                private void Goo()
                 {
                     throw new NotImplementedException();
                 }
@@ -106,11 +107,11 @@ public class CSharpCodeActionEndToEndTest : SingleServerDelegatingEndpointTestBa
 
             """;
 
-        await ValidateCodeActionAsync(input, "GenerateMethod", expected);
+        await ValidateCodeActionAsync(input, RazorPredefinedCodeFixProviderNames.GenerateMethod, expected);
     }
 
     [Fact]
-    public async Task Handle_GenerateMethod_IntoHidden()
+    public async Task Handle_GenerateMethod_AfterMethod()
     {
         var input = """
 
@@ -120,24 +121,24 @@ public class CSharpCodeActionEndToEndTest : SingleServerDelegatingEndpointTestBa
             {
                 public void M()
                 {
-                    var x = [|MyFancyMethod|]();
+                    this.[|Goo|]();
                 }
             }
 
             """;
 
         var expected = """
-            
+
             <div></div>
-            
+
             @functions
             {
                 public void M()
                 {
-                    var x = MyFancyMethod();
+                    this.Goo();
                 }
 
-                private object MyFancyMethod()
+                private void Goo()
                 {
                     throw new NotImplementedException();
                 }
@@ -145,7 +146,41 @@ public class CSharpCodeActionEndToEndTest : SingleServerDelegatingEndpointTestBa
 
             """;
 
-        await ValidateCodeActionAsync(input, "GenerateMethod", expected);
+        await ValidateCodeActionAsync(input, RazorPredefinedCodeFixProviderNames.GenerateMethod, expected);
+    }
+
+    [Fact]
+    public async Task Handle_GenerateMethod_NoFunctionsBlock()
+    {
+        var input = """
+
+            <div></div>
+
+            @{ this.[|Goo|](); }
+
+            @functions
+            {
+            }
+
+            """;
+
+        var expected = """
+
+            <div></div>
+
+            @{ this.Goo(); }
+
+            @functions
+            {
+                private void Goo()
+                {
+                    throw new NotImplementedException();
+                }
+            }
+
+            """;
+
+        await ValidateCodeActionAsync(input, RazorPredefinedCodeFixProviderNames.GenerateMethod, expected);
     }
 
     private async Task ValidateCodeActionAsync(string input, string codeAction, string expected)
