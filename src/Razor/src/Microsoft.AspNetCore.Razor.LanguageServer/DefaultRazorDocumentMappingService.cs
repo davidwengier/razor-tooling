@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Razor.Language;
 using Microsoft.AspNetCore.Razor.Language.Legacy;
 using Microsoft.AspNetCore.Razor.LanguageServer.Extensions;
+using Microsoft.AspNetCore.Razor.LanguageServer.Formatting;
 using Microsoft.AspNetCore.Razor.LanguageServer.Protocol;
 using Microsoft.CodeAnalysis.Razor.Workspaces;
 using Microsoft.CodeAnalysis.Razor.Workspaces.Extensions;
@@ -212,6 +213,37 @@ internal class DefaultRazorDocumentMappingService : RazorDocumentMappingService
                         });
                     }
 
+                    continue;
+                }
+            }
+
+            // When there is Html inside C#, the Html formatter will adjust the indentation before the first Html tag but in
+            // the Razor tree, the C# code block owns that whitespace. eg:
+            //
+            // @if (true)
+            // {
+            //     |<p>
+            //
+            // The span mapping for html will start at the |, but the edit will be before that
+            if (!mappedStart && mappedEnd && !range.SpansMultipleLines())
+            {
+                if (generatedDocument.CodeDocument.GetCSharpDocument() == generatedDocument)
+                {
+                    continue;
+                }
+
+                // We only want to do this if we're adjusting indentation at the start of the line
+                if (edit.NewText.GetFirstNonWhitespaceOffset() is null)
+                {
+                    projectedEdits.Add(new TextEdit()
+                    {
+                        NewText = edit.NewText,
+                        Range = new Range
+                        {
+                            Start = new Position(hostDocumentEnd!.Line, hostDocumentEnd.Character - (range.End.Character - range.Start.Character)),
+                            End = hostDocumentEnd!
+                        },
+                    });
                     continue;
                 }
             }
