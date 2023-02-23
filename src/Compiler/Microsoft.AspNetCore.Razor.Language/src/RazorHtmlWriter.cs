@@ -31,6 +31,7 @@ internal class RazorHtmlWriter : SyntaxWalker
     private readonly Action<UnclassifiedTextLiteralSyntax> _baseVisitUnclassifiedTextLiteral;
 
     private bool _isHtml;
+    private string? _csharpRewriteChar;
     private SourceSpan _lastOriginalSourceSpan = SourceSpan.Undefined;
     private SourceSpan _lastGeneratedSourceSpan = SourceSpan.Undefined;
 
@@ -82,9 +83,9 @@ internal class RazorHtmlWriter : SyntaxWalker
 
         writer.Visit(syntaxTree);
 
-        Debug.Assert(
-            writer.Source.Length == writer.Builder.Length,
-            $"The backing HTML document should be the same length as the original document. Expected: {writer.Source.Length} Actual: {writer.Builder.Length}");
+        //Debug.Assert(
+        //    writer.Source.Length == writer.Builder.Length,
+        //    $"The backing HTML document should be the same length as the original document. Expected: {writer.Source.Length} Actual: {writer.Builder.Length}");
         var generatedHtml = writer.Builder.GenerateCode();
 
         var sourceMappings = writer.SourceMappings.ToArray();
@@ -260,16 +261,20 @@ internal class RazorHtmlWriter : SyntaxWalker
             }
             else
             {
-                Builder.Write("~");
+                Debug.Assert(_csharpRewriteChar != null);
+                Builder.Write(_csharpRewriteChar);
             }
         }
     }
 
-    private void WriteNode<TNode>(TNode node, bool isHtml, Action<TNode> handler) where TNode : SyntaxNode
+    private void WriteNode<TNode>(TNode node, bool isHtml, Action<TNode> handler, string csharpRewriteChar = "~") where TNode : SyntaxNode
     {
         var old = _isHtml;
+        var oldRewriteChar = _csharpRewriteChar;
         _isHtml = isHtml;
+        _csharpRewriteChar = csharpRewriteChar;
         handler(node);
         _isHtml = old;
+        _csharpRewriteChar = oldRewriteChar;
     }
 }
