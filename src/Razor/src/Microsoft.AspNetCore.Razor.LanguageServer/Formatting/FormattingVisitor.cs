@@ -481,7 +481,11 @@ internal class FormattingVisitor : SyntaxWalker
             _currentRazorIndentationLevel,
             _currentHtmlIndentationLevel,
             _isInClassBody,
-            _currentComponentIndentationLevel);
+            _currentComponentIndentationLevel
+#if DEBUG
+            ,node.GetContent()
+#endif
+            );
 
         _spans.Add(span);
     }

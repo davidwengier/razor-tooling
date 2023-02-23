@@ -168,7 +168,11 @@ internal class FormattingContext : IDisposable
                         razorIndentationLevel: 0,
                         htmlIndentationLevel: 0,
                         isInClassBody: false,
-                        componentLambdaNestingLevel: 0);
+                        componentLambdaNestingLevel: 0
+#if DEBUG
+                        , debugOnlyText: ""
+#endif
+                        );
 
                     indentations[i] = new IndentationContext(firstSpan: placeholderSpan)
                     {

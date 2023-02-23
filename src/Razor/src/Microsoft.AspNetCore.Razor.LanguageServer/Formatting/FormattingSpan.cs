@@ -14,8 +14,12 @@ internal class FormattingSpan
         FormattingBlockKind blockKind,
         int razorIndentationLevel,
         int htmlIndentationLevel,
-        bool isInClassBody = false,
-        int componentLambdaNestingLevel = 0)
+        bool isInClassBody,
+        int componentLambdaNestingLevel
+#if DEBUG
+        , string debugOnlyText
+#endif
+        )
     {
         Span = span;
         BlockSpan = blockSpan;
@@ -25,6 +29,9 @@ internal class FormattingSpan
         HtmlIndentationLevel = htmlIndentationLevel;
         IsInClassBody = isInClassBody;
         ComponentLambdaNestingLevel = componentLambdaNestingLevel;
+#if DEBUG
+        DebugOnlyTest = debugOnlyText;
+#endif
     }
 
     public TextSpan Span { get; }
@@ -44,6 +51,11 @@ internal class FormattingSpan
     public bool IsInClassBody { get; }
 
     public int ComponentLambdaNestingLevel { get; }
+
+#if DEBUG
+    public string DebugOnlyTest { get; }
+#endif
+
 
     public int MinCSharpIndentLevel
     {
