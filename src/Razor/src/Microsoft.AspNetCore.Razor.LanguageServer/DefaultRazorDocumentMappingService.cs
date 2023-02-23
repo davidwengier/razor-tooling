@@ -62,7 +62,7 @@ internal class DefaultRazorDocumentMappingService : RazorDocumentMappingService
     {
         var projectedEdits = new List<TextEdit>();
         var csharpSourceText = GetGeneratedSourceText(generatedDocument);
-        var lastNewLineAddedToLine = 0;
+        var lastNewLineAddedToLine = -1;
 
         foreach (var edit in edits)
         {
