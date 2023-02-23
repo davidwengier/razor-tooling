@@ -70,6 +70,16 @@ internal class HtmlFormattingPass : FormattingPassBase
             return result;
         }
 
+        _logger.LogTestOnly("Original test:\r\n{originalText}", originalText);
+
+        var tempChangedText = originalText.WithChanges(htmlEdits.Select(e => e.AsTextChange(originalText)));
+        _logger.LogTestOnly("Before NormalizeTextEdits:\r\n{tempChangedText}", tempChangedText);
+
+        htmlEdits = RemapTextEdits(context.CodeDocument.GetHtmlDocument(), htmlEdits, RazorLanguageKind.Html);
+
+        tempChangedText = originalText.WithChanges(htmlEdits.Select(e => e.AsTextChange(originalText)));
+        _logger.LogTestOnly("After RemapTextEdits:\r\n{tempChangedText}", tempChangedText);
+
         var changedText = originalText;
         var changedContext = context;
 
