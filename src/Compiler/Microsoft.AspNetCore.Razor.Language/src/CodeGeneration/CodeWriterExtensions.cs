@@ -467,7 +467,17 @@ internal static class CodeWriterExtensions
             writer.WriteLine("#nullable disable");
         }
 
-        return new CSharpCodeWritingScope(writer);
+        var scope = new CSharpCodeWritingScope(writer);
+
+        writer.WriteLine("""
+            #line default
+            private object __z_generateCodeMarkerStart;
+
+            private object __z_generateCodeMarkerEnd;
+            #line hidden
+            """);
+
+        return scope;
     }
 
     public static CSharpCodeWritingScope BuildMethodDeclaration(
