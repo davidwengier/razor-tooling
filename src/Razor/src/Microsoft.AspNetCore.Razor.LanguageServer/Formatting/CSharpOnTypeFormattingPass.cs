@@ -113,7 +113,7 @@ internal class CSharpOnTypeFormattingPass : CSharpFormattingPassBase
         }
 
         var normalizedEdits = NormalizeTextEdits(csharpText, textEdits, out var originalTextWithChanges);
-        var mappedEdits = RemapTextEdits(codeDocument, normalizedEdits, result.Kind);
+        var mappedEdits = RemapTextEdits(codeDocument.GetCSharpDocument(), normalizedEdits, result.Kind);
         var filteredEdits = FilterCSharpTextEdits(context, mappedEdits);
         if (filteredEdits.Length == 0)
         {
@@ -522,14 +522,5 @@ internal class CSharpOnTypeFormattingPass : CSharpFormattingPassBase
         text.GetLineAndOffset(node.Span.End, out var endLine, out _);
 
         return startLine == endLine;
-    }
-
-    private static TextEdit[] NormalizeTextEdits(SourceText originalText, TextEdit[] edits, out SourceText originalTextWithChanges)
-    {
-        var changes = edits.Select(e => e.AsTextChange(originalText));
-        originalTextWithChanges = originalText.WithChanges(changes);
-        var cleanChanges = SourceTextDiffer.GetMinimalTextChanges(originalText, originalTextWithChanges, DiffKind.Char);
-        var cleanEdits = cleanChanges.Select(c => c.AsTextEdit(originalText)).ToArray();
-        return cleanEdits;
     }
 }
