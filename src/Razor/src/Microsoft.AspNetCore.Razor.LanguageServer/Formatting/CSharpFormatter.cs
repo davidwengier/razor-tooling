@@ -227,7 +227,7 @@ internal class CSharpFormatter
                     // will not indent them at all. When they happen to be indented more than 2 levels this causes a problem
                     // because we essentially assume that we should always move them left by at least 2 levels. This means that these
                     // nodes end up moving left with every format operation, until they hit the minimum of 2 indent levels.
-                    // We can't fix this, so we just work around it by ignoring those lines compeletely, and leaving them where the
+                    // We can't fix this, so we just work around it by ignoring those lines completely, and leaving them where the
                     // user put them.
 
                     if (ShouldIgnoreLineCompletely(token, formattedText))
@@ -280,6 +280,16 @@ internal class CSharpFormatter
 
             return parent.AncestorsAndSelf().Any(node =>
             {
+                // If a line starts with a . then it won't be formatted, but in an implicit statement like
+                // @(..) the "__o =" that is generated causes a problem, and means subsequent lines will "march"
+                // across the screen to the right with each formatting operation, so we just skip them entirely.
+                if (token.IsKind(CodeAnalysis.CSharp.SyntaxKind.DotToken) &&
+                    node is AssignmentExpressionSyntax assignment &&
+                    assignment.Left is IdentifierNameSyntax { Identifier.ValueText: "__o" })
+                {
+                    return true;
+                }
+
                 if (node is not InitializerExpressionSyntax initializer)
                 {
                     return false;
