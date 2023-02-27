@@ -1666,6 +1666,71 @@ public class CodeDirectiveFormattingTest : FormattingTestBase
     }
 
     [Fact]
+    public async Task Formats_MultilineExpressionsInVariousBlockTypes()
+    {
+        await RunFormattingTestAsync(
+            input: """
+                    @using System.Text;
+
+                    <div>
+                        @(DateTime
+                                .Now
+                            .ToString())
+
+                        @{
+                            var x = DateTime
+                                .Now
+                                .ToString();
+                        }
+
+                        @code
+                        {
+                            private string _x = DateTime
+                                .Now
+                                .ToString();
+
+                            void M()
+                            {
+                                var y = DateTime
+                                .Now
+                                .ToString();
+                            }
+                        }
+                    </div>
+                    """,
+            expected: """
+                    @using System.Text;
+
+                    <div>
+                        @(DateTime
+                                .Now
+                            .ToString())
+
+                        @{
+                            var x = DateTime
+                                .Now
+                                .ToString();
+                        }
+
+                        @code
+                        {
+                            private string _x = DateTime
+                                .Now
+                                .ToString();
+
+                            void M()
+                            {
+                                var y = DateTime
+                                .Now
+                                .ToString();
+                            }
+                        }
+                    </div>
+                    """);
+    }
+
+
+    [Fact]
     public async Task Formats_MultilineRazorComment()
     {
         await RunFormattingTestAsync(
