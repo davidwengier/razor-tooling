@@ -370,10 +370,11 @@ internal class RazorFormattingPass : FormattingPassBase
             !RangeHasBeenModified(edits, codeRange))
         {
             if (directiveNode is not null &&
-                directiveNode.GetRange(source).Start.Character < closeBraceRange.Start.Character)
+                directiveNode.GetRange(source).Start.Character != closeBraceRange.Start.Character &&
+                !didFormat)
             {
-                // If we have a directive, then we line the close brace up with it, and ensure
-                // there is a close brace
+                // If we have a directive, then we line the close brace up with it, unless we moved the
+                // directive itself above
                 var edit = new TextEdit
                 {
                     NewText = context.NewLineString + context.GetIndentationString(directiveNode.GetRange(source).Start.Character),
