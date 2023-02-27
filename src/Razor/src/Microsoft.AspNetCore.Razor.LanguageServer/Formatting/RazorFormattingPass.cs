@@ -148,7 +148,7 @@ internal class RazorFormattingPass : FormattingPassBase
             var codeNode = csharpStatementBody.CSharpCode;
             var closeBraceNode = csharpStatementBody.CloseBrace;
 
-            return FormatBlock(context, source, directiveNode: null, openBraceNode, codeNode, closeBraceNode, edits);
+            return FormatBlock(context, source, directiveNode: statement.Transition, openBraceNode, codeNode, closeBraceNode, edits);
         }
 
         return false;
