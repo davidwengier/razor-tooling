@@ -1674,21 +1674,21 @@ public class HtmlFormattingTest : FormattingTestBase
 
                     <div>
                         @(new C()
-                            .M("Hello")
+                                .M("Hello")
                             .M("World")
                             .M(source =>
-                            {
-                                if (source.Length > 0)
                                 {
-                                    source.ToString();
-                                }
-                            }))
+                                    if (source.Length > 0)
+                                    {
+                                        source.ToString();
+                                    }
+                                }))
 
                         @(DateTime.Now)
 
                         @(DateTime
-                            .Now
-                            .ToString())
+                    .Now
+                    .ToString())
 
                         @(Html.DisplayNameFor(@<text>
                             <p>
