@@ -44,11 +44,11 @@ internal abstract class FormattingPassBase : IFormattingPass
 
     public abstract Task<FormattingResult> ExecuteAsync(FormattingContext context, FormattingResult result, CancellationToken cancellationToken);
 
-    protected TextEdit[] NormalizeTextEdits(SourceText originalText, TextEdit[] edits, out SourceText originalTextWithChanges)
+    protected TextEdit[] NormalizeTextEdits(SourceText originalText, TextEdit[] edits, out SourceText originalTextWithChanges, bool lineDiff = false)
     {
         var changes = edits.Select(e => e.AsTextChange(originalText));
         originalTextWithChanges = originalText.WithChanges(changes);
-        var cleanChanges = SourceTextDiffer.GetMinimalTextChanges(originalText, originalTextWithChanges, DiffKind.Char);
+        var cleanChanges = SourceTextDiffer.GetMinimalTextChanges(originalText, originalTextWithChanges, lineDiff ? DiffKind.Line : DiffKind.Char);
         var cleanEdits = cleanChanges.Select(c => c.AsTextEdit(originalText)).ToArray();
         return cleanEdits;
     }

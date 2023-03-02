@@ -146,6 +146,20 @@ internal class DefaultRazorDocumentMappingService : RazorDocumentMappingService
                     });
                     continue;
                 }
+                else if (!mappedStart && mappedEnd && generatedDocument.CodeDocument.GetCSharpDocument() != generatedDocument)
+                {
+                    // For HTML, we want to take this anyway
+                    projectedEdits.Add(new TextEdit()
+                    {
+                        NewText = edit.NewText[lastNewLine..],
+                        Range = new Range
+                        {
+                            Start = new Position(hostDocumentEnd!.Line, hostDocumentEnd.Character - (range.End.Character - range.Start.Character)),
+                            End = hostDocumentEnd!
+                        },
+                    });
+                    continue;
+                }
             }
 
             // If we couldn't map either the start or the end then we still might want to do something tricky.
@@ -372,10 +386,11 @@ internal class DefaultRazorDocumentMappingService : RazorDocumentMappingService
             var generatedAbsoluteIndex = generatedSpan.AbsoluteIndex;
             if (generatedAbsoluteIndex <= csharpAbsoluteIndex)
             {
-                // Treat the mapping as owning the edge at its end (hence <= originalSpan.Length),
+                // Treat the mapping as owning the edge at its end (hence <= originalSpan.Length) for C#,
                 // otherwise we wouldn't handle the cursor being right after the final C# char
                 var distanceIntoGeneratedSpan = csharpAbsoluteIndex - generatedAbsoluteIndex;
-                if (distanceIntoGeneratedSpan <= generatedSpan.Length)
+                if (distanceIntoGeneratedSpan <= generatedSpan.Length && generatedDocument == generatedDocument.CodeDocument.GetCSharpDocument() ||
+                    (distanceIntoGeneratedSpan < generatedSpan.Length))
                 {
                     // Found the generated span that contains the csharp absolute index
 

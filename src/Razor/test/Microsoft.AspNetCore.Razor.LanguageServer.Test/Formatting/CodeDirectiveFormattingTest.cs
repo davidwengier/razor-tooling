@@ -1729,7 +1729,6 @@ public class CodeDirectiveFormattingTest : FormattingTestBase
                     """);
     }
 
-
     [Fact]
     public async Task Formats_MultilineRazorComment()
     {

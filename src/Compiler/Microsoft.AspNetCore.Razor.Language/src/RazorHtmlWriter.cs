@@ -169,7 +169,7 @@ internal class RazorHtmlWriter : SyntaxWalker
 
     public override void VisitMarkupEphemeralTextLiteral(MarkupEphemeralTextLiteralSyntax node)
     {
-        WriteNode(node, isHtml: true, _baseVisitMarkupEphemeralTextLiteral);
+        WriteNode(node, isHtml: false, _baseVisitMarkupEphemeralTextLiteral);
     }
 
     public override void VisitMarkupTextLiteral(MarkupTextLiteralSyntax node)
@@ -267,7 +267,7 @@ internal class RazorHtmlWriter : SyntaxWalker
         }
     }
 
-    private void WriteNode<TNode>(TNode node, bool isHtml, Action<TNode> handler, string csharpRewriteChar = "~") where TNode : SyntaxNode
+    private void WriteNode<TNode>(TNode node, bool isHtml, Action<TNode> handler, string csharpRewriteChar = " ") where TNode : SyntaxNode
     {
         var old = _isHtml;
         var oldRewriteChar = _csharpRewriteChar;

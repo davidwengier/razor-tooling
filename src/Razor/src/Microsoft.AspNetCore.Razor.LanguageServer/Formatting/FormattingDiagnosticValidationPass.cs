@@ -65,8 +65,11 @@ internal class FormattingDiagnosticValidationPass : FormattingPassBase
         // at all possible). Also worth noting the order has to be maintained in that case.
         if (!originalDiagnostics.SequenceEqual(changedDiagnostics, LocationIgnoringDiagnosticComparer.Instance))
         {
+
             if (DebugAssertsEnabled)
             {
+                _logger.LogTestOnly("Original diagnostics: {originalDiagnostics}", string.Join(Environment.NewLine, originalDiagnostics.Select(d => d.ToString())));
+                _logger.LogTestOnly("Changed diagnostics: {changedDiagnostics}", string.Join(Environment.NewLine, changedDiagnostics.Select(d => d.ToString())));
                 Debug.Fail("A formatting result was rejected because the formatted text produced different diagnostics compared to the original text.");
             }
 

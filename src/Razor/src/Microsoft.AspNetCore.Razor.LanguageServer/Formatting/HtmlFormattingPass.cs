@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Razor.Language.Legacy;
 using Microsoft.AspNetCore.Razor.Language.Syntax;
 using Microsoft.AspNetCore.Razor.LanguageServer.Extensions;
 using Microsoft.AspNetCore.Razor.LanguageServer.Protocol;
+using Microsoft.CodeAnalysis.Razor.Workspaces.Extensions;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -73,7 +74,9 @@ internal class HtmlFormattingPass : FormattingPassBase
         _logger.LogTestOnly("Original test:\r\n{originalText}", originalText);
 
         var tempChangedText = originalText.WithChanges(htmlEdits.Select(e => e.AsTextChange(originalText)));
-        _logger.LogTestOnly("Before NormalizeTextEdits:\r\n{tempChangedText}", tempChangedText);
+        _logger.LogTestOnly("Before RemapTextEdits:\r\n{tempChangedText}", tempChangedText);
+
+        //htmlEdits = NormalizeTextEdits(context.CodeDocument.GetHtmlSourceText(), htmlEdits, out var _, lineDiff: true);
 
         htmlEdits = RemapTextEdits(context.CodeDocument.GetHtmlDocument(), htmlEdits, RazorLanguageKind.Html);
 

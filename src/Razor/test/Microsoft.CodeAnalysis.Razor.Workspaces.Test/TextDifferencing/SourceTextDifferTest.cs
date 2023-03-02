@@ -126,6 +126,33 @@ public class SourceTextDifferTest : TestBase
             change => Assert.Equal(new TextChange(TextSpan.FromBounds(12, 33), "MULTIPLE\r\nLINES\r\nOF\r\n"), change));
     }
 
+    [Fact(Skip = "GetMinimalTextChanges is not actually minimal! Sometimes it creates two edits that straddle the middle of the string")]
+    public void HtmlFormattingChange_EditInTheMiddle()
+    {
+        var oldText = CreateSourceText("""
+            @if (true)
+                {
+                    <option>goo</option>
+                }
+            """);
+
+        var newText = CreateSourceText("""
+            @if (true)
+            {
+                <option>goo</option>
+            }
+            """);
+
+        // Act 1
+        var characterChanges = SourceTextDiffer.GetMinimalTextChanges(oldText, newText, DiffKind.Char);
+
+        // Assert 1
+        Assert.Collection(characterChanges,
+            change => Assert.Equal(new TextChange(TextSpan.FromBounds(12, 16), ""), change),
+            change => Assert.Equal(new TextChange(TextSpan.FromBounds(19, 23), ""), change),
+            change => Assert.Equal(new TextChange(TextSpan.FromBounds(49, 53), ""), change));
+    }
+
     private static SourceText CreateSourceText(string input, bool fixLineEndings = true)
     {
         if (fixLineEndings)
