@@ -3,23 +3,31 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Razor.Language;
+using Microsoft.AspNetCore.Razor.Language.Syntax;
 using Microsoft.AspNetCore.Razor.LanguageServer.Common;
 using Microsoft.AspNetCore.Razor.LanguageServer.EndpointContracts;
+using Microsoft.AspNetCore.Razor.LanguageServer.Extensions;
 using Microsoft.AspNetCore.Razor.LanguageServer.Protocol;
 using Microsoft.AspNetCore.Razor.PooledObjects;
 using Microsoft.AspNetCore.Razor.Telemetry;
 using Microsoft.CodeAnalysis.Razor.Workspaces;
 using Microsoft.CommonLanguageServerProtocol.Framework;
 using Microsoft.VisualStudio.LanguageServer.Protocol;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using StreamJsonRpc;
 
 namespace Microsoft.AspNetCore.Razor.LanguageServer.Diagnostics;
 
 [LanguageServerEndpoint(VSInternalMethods.DocumentPullDiagnosticName)]
 internal class DocumentPullDiagnosticsEndpoint : IRazorRequestHandler<VSInternalDocumentDiagnosticsParams, IEnumerable<VSInternalDiagnosticReport>?>, ICapabilitiesProvider
 {
+    private static readonly DiagnosticTag[] s_taskItemTags = new[] { VSDiagnosticTags.TaskItem };
+
     private readonly LanguageServerFeatureOptions _languageServerFeatureOptions;
     private readonly ClientNotifierServiceBase _languageServer;
     private readonly RazorTranslateDiagnosticsService _translateDiagnosticsService;
@@ -42,6 +50,13 @@ internal class DocumentPullDiagnosticsEndpoint : IRazorRequestHandler<VSInternal
     public void ApplyCapabilities(VSInternalServerCapabilities serverCapabilities, VSInternalClientCapabilities clientCapabilities)
     {
         serverCapabilities.SupportsDiagnosticRequests = true;
+        serverCapabilities.DiagnosticProvider = new VSInternalDiagnosticOptions
+        {
+            DiagnosticKinds = new VSInternalDiagnosticKind[]
+            {
+                VSInternalDiagnosticKind.Task
+            }
+        };
     }
 
     public TextDocumentIdentifier GetTextDocumentIdentifier(VSInternalDocumentDiagnosticsParams request)
@@ -59,6 +74,11 @@ internal class DocumentPullDiagnosticsEndpoint : IRazorRequestHandler<VSInternal
         if (!_languageServerFeatureOptions.SingleServerSupport)
         {
             return default;
+        }
+
+        if (request.QueryingDiagnosticKind?.Value == VSInternalDiagnosticKind.Task.Value)
+        {
+            return await HandleTaskRequestAsync(context, cancellationToken).ConfigureAwait(false);
         }
 
         var correlationId = Guid.NewGuid();
@@ -110,6 +130,67 @@ internal class DocumentPullDiagnosticsEndpoint : IRazorRequestHandler<VSInternal
         }
 
         return allDiagnostics.ToArray();
+    }
+
+    private async Task<VSInternalDiagnosticReport[]?> HandleTaskRequestAsync(RazorRequestContext context, CancellationToken cancellationToken)
+    {
+        var documentContext = context.GetRequiredDocumentContext();
+
+        var source = await documentContext.GetSourceTextAsync(cancellationToken).ConfigureAwait(false);
+        var tree = await documentContext.GetSyntaxTreeAsync(cancellationToken).ConfigureAwait(false);
+
+        using var _ = ListPool<Diagnostic>.GetPooledObject(out var diagnostics);
+
+        foreach (var node in tree.Root.DescendantNodes())
+        {
+            if (node is RazorCommentBlockSyntax comment)
+            {
+                var i = comment.Comment.SpanStart;
+
+                // There needs to be at least 7 characters before the end of the file. Two for the end comment,
+                // four for the "TODO" and one for the character after that.
+                if (i + 7 > source.Length)
+                {
+                    continue;
+                }
+
+                while (char.IsWhiteSpace(source[i]))
+                {
+                    i++;
+                }
+
+                if (source[i] is 'T' or 't' &&
+                    source[i + 1] is 'O' or 'o' &&
+                    source[i + 2] is 'D' or 'd' &&
+                    source[i + 3] is 'O' or 'o' &&
+                    !char.IsLetter(source[i + 4])) // So we don't match "TODOOLOO"
+                {
+                    AddTaskDiagnostic(diagnostics, comment.Comment.Span.AsRange(source), comment.Comment.Content.Trim());
+                }
+            }
+        }
+
+        return new[]
+        {
+            new VSInternalDiagnosticReport
+            {
+                ResultId = Guid.NewGuid().ToString(),
+                Diagnostics = diagnostics.ToArray()
+            }
+        };
+    }
+
+    private static void AddTaskDiagnostic(List<Diagnostic> diagnostics, Range range, string message)
+    {
+        diagnostics.Add(new Diagnostic
+        {
+            Code = "TODO",
+            Message = message,
+            Source = "Razor",
+            Severity = DiagnosticSeverity.Information,
+            Range = range,
+            Tags = s_taskItemTags
+        });
     }
 
     private static async Task<VSInternalDiagnosticReport[]?> GetRazorDiagnosticsAsync(VersionedDocumentContext documentContext, CancellationToken cancellationToken)
