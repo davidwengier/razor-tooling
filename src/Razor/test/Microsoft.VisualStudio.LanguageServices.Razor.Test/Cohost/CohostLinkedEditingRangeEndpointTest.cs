@@ -3,19 +3,20 @@
 
 using System.Collections.Immutable;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Razor.Test.Common.Mef;
 using Microsoft.CodeAnalysis.ExternalAccess.Razor;
 using Microsoft.CodeAnalysis.Razor.LinkedEditingRange;
 using Microsoft.CodeAnalysis.Razor.Workspaces;
 using Microsoft.CodeAnalysis.Testing;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.VisualStudio.LanguageServer.Protocol;
-using Microsoft.VisualStudio.Razor.LanguageClient.Cohost;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace Microsoft.VisualStudio.LanguageServices.Razor.Test.Cohost;
 
-public class CohostLinkedEditingRangeTest(ITestOutputHelper testOutputHelper) : CohostTestBase(testOutputHelper)
+[UseExportProvider]
+public class CohostLinkedEditingRangeEndpointTest(ITestOutputHelper testOutputHelper) : CohostTestBase(testOutputHelper)
 {
     [Theory]
     [InlineData("$$div")]
@@ -142,25 +143,25 @@ public class CohostLinkedEditingRangeTest(ITestOutputHelper testOutputHelper) : 
     {
         TestFileMarkupParser.GetPositionAndSpans(input, out input, out int cursorPosition, out ImmutableArray<TextSpan> spans);
         var document = CreateRazorDocument(input);
+        var uri = document.CreateUri();
         var sourceText = await document.GetTextAsync(DisposalToken);
         sourceText.GetLineAndOffset(cursorPosition, out var lineIndex, out var characterIndex);
 
-        var endpoint = new CohostLinkedEditingRangeEndpoint(RemoteServiceProvider, LoggerFactory);
+        var server = await CreateLanguageServerAsync();
+        await server.OpenDocumentAsync(uri, input);
 
-        var request = new LinkedEditingRangeParams()
+        var result = await server.ExecuteRequestAsync<LinkedEditingRangeParams, LinkedEditingRanges?>(Methods.TextDocumentLinkedEditingRangeName, new LinkedEditingRangeParams()
         {
             TextDocument = new TextDocumentIdentifier()
             {
-                Uri = document.CreateUri()
+                Uri = uri
             },
             Position = new Position()
             {
                 Line = lineIndex,
                 Character = characterIndex
             }
-        };
-
-        var result = await endpoint.GetTestAccessor().HandleRequestAsync(request, document, DisposalToken);
+        }, DisposalToken);
 
         if (spans.Length == 0)
         {

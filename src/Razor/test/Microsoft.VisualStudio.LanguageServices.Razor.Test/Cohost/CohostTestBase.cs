@@ -5,25 +5,26 @@ using System.IO;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Razor;
 using Microsoft.AspNetCore.Razor.Test.Common;
+using Microsoft.AspNetCore.Razor.Test.Common.LanguageServer;
+using Microsoft.AspNetCore.Razor.Test.Common.Mef;
 using Microsoft.AspNetCore.Razor.Test.Common.Workspaces;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Razor.Remote;
 using Microsoft.CodeAnalysis.Text;
+using Microsoft.VisualStudio.LanguageServer.Protocol;
+using Microsoft.VisualStudio.Razor.LanguageClient.Cohost;
 using Xunit.Abstractions;
 
 namespace Microsoft.VisualStudio.LanguageServices.Razor.Test.Cohost;
 
 public abstract class CohostTestBase(ITestOutputHelper testOutputHelper) : WorkspaceTestBase(testOutputHelper)
 {
-    private IRemoteServiceProvider? _remoteServiceProvider;
-
-    private protected IRemoteServiceProvider RemoteServiceProvider => _remoteServiceProvider.AssumeNotNull();
-
-    protected override Task InitializeAsync()
+    protected async Task<CSharpTestLspServer> CreateLanguageServerAsync()
     {
-        _remoteServiceProvider = new ShortCircuitingRemoteServiceProvider(TestOutputHelper);
+        var serviceProvider = (ShortCircuitingRemoteServiceProvider)ExportProvider.GetExportedValue<IRemoteServiceProvider>();
+        serviceProvider.SetTestOutputHelper(TestOutputHelper);
 
-        return base.InitializeAsync();
+        return await CSharpTestLspServerHelpers.CreateCSharpLspServerAsync(new VSInternalServerCapabilities(), capabilitiesUpdater: null, ExportProvider, Workspace, createCohostServer: true, DisposalToken);
     }
 
     protected TextDocument CreateRazorDocument(string contents)
@@ -48,6 +49,17 @@ public abstract class CohostTestBase(ITestOutputHelper testOutputHelper) : Works
             SourceText.From(contents),
             filePath: documentFilePath);
 
+        Workspace.TryApplyChanges(solution);
+
         return solution.GetAdditionalDocument(documentId).AssumeNotNull();
+    }
+
+    protected override TestComposition ConfigureComposition(TestComposition composition)
+    {
+        return composition
+            .Add(TestComposition.Roslyn)
+            .AddAssemblies(typeof(CohostLinkedEditingRangeEndpoint).Assembly)
+            .AddExcludedPartTypes(typeof(IRemoteServiceProvider))
+            .AddParts(typeof(ShortCircuitingRemoteServiceProvider));
     }
 }

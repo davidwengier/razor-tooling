@@ -12,7 +12,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Razor.Test.Common.Mef;
 using Microsoft.AspNetCore.Razor.Test.Common.Workspaces;
-using Microsoft.AspNetCore.Razor.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.ExternalAccess.Razor;
@@ -59,14 +58,24 @@ internal static class CSharpTestLspServerHelpers
          Action<VSInternalClientCapabilities> capabilitiesUpdater,
         CancellationToken cancellationToken)
     {
-        var csharpFiles = files.Select(f => new CSharpFile(f.Uri, f.SourceText));
-
         var exportProvider = TestComposition.Roslyn.ExportProviderFactory.CreateExportProvider();
+        var csharpFiles = files.Select(f => new CSharpFile(f.Uri, f.SourceText));
         var metadataReferences = (await ReferenceAssemblies.Default.ResolveAsync(language: LanguageNames.CSharp, cancellationToken))
             // ComponentBase here comes from our ComponentShim project, not the real ASP.NET libraries. It's enough for the generated C#
             // in tests to at least compile better.
             .Add(ReferenceUtil.AspNetLatestComponents);
         var workspace = CreateCSharpTestWorkspace(csharpFiles, exportProvider, metadataReferences, razorSpanMappingService, multiTargetProject);
+        return await CreateCSharpLspServerAsync(serverCapabilities, capabilitiesUpdater, exportProvider, workspace, createCohostServer: false, cancellationToken);
+    }
+
+    public static async Task<CSharpTestLspServer> CreateCSharpLspServerAsync(
+        VSInternalServerCapabilities serverCapabilities,
+        Action<VSInternalClientCapabilities> capabilitiesUpdater,
+        ExportProvider exportProvider,
+        Workspace workspace,
+        bool createCohostServer,
+        CancellationToken cancellationToken)
+    {
         var clientCapabilities = new VSInternalClientCapabilities
         {
             SupportsVisualStudioExtensions = true,
@@ -98,7 +107,7 @@ internal static class CSharpTestLspServerHelpers
         capabilitiesUpdater?.Invoke(clientCapabilities);
 
         return await CSharpTestLspServer.CreateAsync(
-            workspace, exportProvider, clientCapabilities, serverCapabilities, cancellationToken);
+            workspace, exportProvider, clientCapabilities, serverCapabilities, createCohostServer, cancellationToken);
     }
 
     private static AdhocWorkspace CreateCSharpTestWorkspace(
@@ -199,11 +208,4 @@ internal static class CSharpTestLspServerHelpers
 
     private record CSharpFile(Uri DocumentUri, SourceText CSharpSourceText);
 
-    private class EmptyMappingService : IRazorSpanMappingService
-    {
-        public Task<ImmutableArray<RazorMappedSpanResult>> MapSpansAsync(Document document, IEnumerable<TextSpan> spans, CancellationToken cancellationToken)
-        {
-            return SpecializedTasks.EmptyImmutableArray<RazorMappedSpanResult>();
-        }
-    }
 }

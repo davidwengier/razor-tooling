@@ -21,7 +21,7 @@ namespace Microsoft.AspNetCore.Razor.Test.Common.LanguageServer;
 
 public sealed class CSharpTestLspServer : IAsyncDisposable
 {
-    private readonly AdhocWorkspace _testWorkspace;
+    private readonly Workspace _testWorkspace;
     private readonly IRazorLanguageServerTarget _languageServer;
 
     private readonly JsonRpc _clientRpc;
@@ -35,9 +35,10 @@ public sealed class CSharpTestLspServer : IAsyncDisposable
     private readonly CancellationToken _cancellationToken;
 
     private CSharpTestLspServer(
-        AdhocWorkspace testWorkspace,
+        Workspace testWorkspace,
         ExportProvider exportProvider,
         VSInternalServerCapabilities serverCapabilities,
+        bool createCohostServer,
         CancellationToken cancellationToken)
     {
         _testWorkspace = testWorkspace;
@@ -45,7 +46,7 @@ public sealed class CSharpTestLspServer : IAsyncDisposable
 
         var (clientStream, serverStream) = FullDuplexStream.CreatePair();
 
-        var languageServerFactory = exportProvider.GetExportedValue<AbstractRazorLanguageServerFactoryWrapper>();
+        var languageServerFactory =  exportProvider.GetExportedValue<RazorTestLanguageServerFactory>();
 
         _serverMessageFormatter = CreateSystemTextJsonMessageFormatter(languageServerFactory);
         _serverMessageHandler = new HeaderDelimitedMessageHandler(serverStream, serverStream, _serverMessageFormatter);
@@ -67,9 +68,9 @@ public sealed class CSharpTestLspServer : IAsyncDisposable
 
         _clientRpc.StartListening();
 
-        _languageServer = CreateLanguageServer(_serverRpc, _serverMessageFormatter.JsonSerializerOptions, testWorkspace, languageServerFactory, exportProvider, serverCapabilities);
+        _languageServer = CreateLanguageServer(_serverRpc, _serverMessageFormatter.JsonSerializerOptions, testWorkspace, languageServerFactory, exportProvider, serverCapabilities, createCohostServer);
 
-        static SystemTextJsonFormatter CreateSystemTextJsonMessageFormatter(AbstractRazorLanguageServerFactoryWrapper languageServerFactory)
+        static SystemTextJsonFormatter CreateSystemTextJsonMessageFormatter(RazorTestLanguageServerFactory languageServerFactory)
         {
             var messageFormatter = new SystemTextJsonFormatter();
 
@@ -86,9 +87,10 @@ public sealed class CSharpTestLspServer : IAsyncDisposable
             JsonRpc serverRpc,
             JsonSerializerOptions options,
             Workspace workspace,
-            AbstractRazorLanguageServerFactoryWrapper languageServerFactory,
+            RazorTestLanguageServerFactory languageServerFactory,
             ExportProvider exportProvider,
-            VSInternalServerCapabilities serverCapabilities)
+            VSInternalServerCapabilities serverCapabilities,
+            bool createCohostServer)
         {
             var capabilitiesProvider = new RazorTestCapabilitiesProvider(serverCapabilities, options);
 
@@ -96,7 +98,10 @@ public sealed class CSharpTestLspServer : IAsyncDisposable
             registrationService.Register(workspace);
 
             var hostServices = workspace.Services.HostServices;
-            var languageServer = languageServerFactory.CreateLanguageServer(serverRpc, options, capabilitiesProvider, hostServices);
+
+            var languageServer = createCohostServer
+                ? languageServerFactory.CreateAlwaysActiveVSLanguageServer(serverRpc, options, capabilitiesProvider, hostServices)
+                : languageServerFactory.CreateLanguageServer(serverRpc, options, capabilitiesProvider, hostServices);
 
             serverRpc.StartListening();
             return languageServer;
@@ -104,13 +109,14 @@ public sealed class CSharpTestLspServer : IAsyncDisposable
     }
 
     internal static async Task<CSharpTestLspServer> CreateAsync(
-        AdhocWorkspace testWorkspace,
+        Workspace testWorkspace,
         ExportProvider exportProvider,
         ClientCapabilities clientCapabilities,
         VSInternalServerCapabilities serverCapabilities,
+        bool createCohostServer,
         CancellationToken cancellationToken)
     {
-        var server = new CSharpTestLspServer(testWorkspace, exportProvider, serverCapabilities, cancellationToken);
+        var server = new CSharpTestLspServer(testWorkspace, exportProvider, serverCapabilities, createCohostServer, cancellationToken);
 
         await server.ExecuteRequestAsync<InitializeParams, InitializeResult>(
             Methods.InitializeName,

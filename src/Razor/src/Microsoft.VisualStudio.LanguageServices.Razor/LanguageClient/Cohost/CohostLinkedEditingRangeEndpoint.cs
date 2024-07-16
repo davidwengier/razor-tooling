@@ -54,11 +54,10 @@ internal class CohostLinkedEditingRangeEndpoint(IRemoteServiceProvider remoteSer
     protected override RazorTextDocumentIdentifier? GetRazorTextDocumentIdentifier(LinkedEditingRangeParams request)
         => request.TextDocument.ToRazorTextDocumentIdentifier();
 
-    protected override Task<LinkedEditingRanges?> HandleRequestAsync(LinkedEditingRangeParams request, RazorCohostRequestContext context, CancellationToken cancellationToken)
-        => HandleRequestAsync(request, context.TextDocument.AssumeNotNull(), cancellationToken);
-
-    private async Task<LinkedEditingRanges?> HandleRequestAsync(LinkedEditingRangeParams request, TextDocument razorDocument, CancellationToken cancellationToken)
+    protected override async Task<LinkedEditingRanges?> HandleRequestAsync(LinkedEditingRangeParams request, RazorCohostRequestContext context, CancellationToken cancellationToken)
     {
+        var razorDocument = context.TextDocument.AssumeNotNull();
+
         var linkedRanges = await _remoteServiceProvider.TryInvokeAsync<IRemoteLinkedEditingRangeService, LinePositionSpan[]?>(
             razorDocument.Project.Solution,
             (service, solutionInfo, cancellationToken) => service.GetRangesAsync(solutionInfo, razorDocument.Id, request.Position.ToLinePosition(), cancellationToken),
@@ -74,13 +73,5 @@ internal class CohostLinkedEditingRangeEndpoint(IRemoteServiceProvider remoteSer
         }
 
         return null;
-    }
-
-    internal TestAccessor GetTestAccessor() => new(this);
-
-    internal readonly struct TestAccessor(CohostLinkedEditingRangeEndpoint instance)
-    {
-        public Task<LinkedEditingRanges?> HandleRequestAsync(LinkedEditingRangeParams request, TextDocument razorDocument, CancellationToken cancellationToken)
-            => instance.HandleRequestAsync(request, razorDocument, cancellationToken);
     }
 }

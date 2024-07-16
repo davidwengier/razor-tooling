@@ -5,10 +5,13 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Razor.Language;
 using Microsoft.AspNetCore.Razor.ProjectEngineHost;
+using Microsoft.AspNetCore.Razor.Test.Common.Mef;
 using Microsoft.AspNetCore.Razor.Test.Common.ProjectSystem;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Host;
+using Microsoft.CodeAnalysis.Host.Mef;
 using Microsoft.CodeAnalysis.Razor.Workspaces;
+using Microsoft.VisualStudio.Composition;
 using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Razor.Test.Common.Workspaces;
@@ -16,17 +19,17 @@ namespace Microsoft.AspNetCore.Razor.Test.Common.Workspaces;
 public abstract class WorkspaceTestBase(ITestOutputHelper testOutput) : ToolingTestBase(testOutput)
 {
     private bool _initialized;
-    private HostServices? _hostServices;
+    private ExportProvider? _exportProvider;
     private Workspace? _workspace;
     private IWorkspaceProvider? _workspaceProvider;
     private IProjectEngineFactoryProvider? _projectEngineFactoryProvider;
 
-    protected HostServices HostServices
+    protected ExportProvider ExportProvider
     {
         get
         {
             EnsureInitialized();
-            return _hostServices;
+            return _exportProvider;
         }
     }
 
@@ -67,8 +70,9 @@ public abstract class WorkspaceTestBase(ITestOutputHelper testOutput) : ToolingT
     {
     }
 
-    protected virtual void ConfigureLanguageServices(List<ILanguageService> services)
+    protected virtual TestComposition ConfigureComposition(TestComposition composition)
     {
+        return composition;
     }
 
     protected virtual void ConfigureWorkspace(AdhocWorkspace workspace)
@@ -79,12 +83,12 @@ public abstract class WorkspaceTestBase(ITestOutputHelper testOutput) : ToolingT
     {
     }
 
-    [MemberNotNull(nameof(_hostServices), nameof(_workspace), nameof(_workspaceProvider), nameof(_projectEngineFactoryProvider))]
+    [MemberNotNull(nameof(_exportProvider), nameof(_workspace), nameof(_workspaceProvider), nameof(_projectEngineFactoryProvider))]
     private void EnsureInitialized()
     {
         if (_initialized)
         {
-            _hostServices.AssumeNotNull();
+            _exportProvider.AssumeNotNull();
             _workspace.AssumeNotNull();
             _workspaceProvider.AssumeNotNull();
             _projectEngineFactoryProvider.AssumeNotNull();
@@ -96,14 +100,13 @@ public abstract class WorkspaceTestBase(ITestOutputHelper testOutput) : ToolingT
             Configure = ConfigureProjectEngine,
         };
 
-        var workspaceServices = new List<IWorkspaceService>();
-        ConfigureWorkspaceServices(workspaceServices);
+        var composition = ConfigureComposition(TestComposition.Empty);
 
-        var languageServices = new List<ILanguageService>();
-        ConfigureLanguageServices(languageServices);
+        _exportProvider = composition.ExportProviderFactory.CreateExportProvider();
 
-        _hostServices = TestServices.Create(workspaceServices, languageServices);
-        _workspace = TestWorkspace.Create(_hostServices, ConfigureWorkspace);
+        var hostServices = MefHostServices.Create(_exportProvider.AsCompositionContext());
+
+        _workspace = TestWorkspace.Create(hostServices, ConfigureWorkspace);
         AddDisposable(_workspace);
         _workspaceProvider = new TestWorkspaceProvider(_workspace);
         _initialized = true;
