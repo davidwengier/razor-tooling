@@ -10,5 +10,5 @@ namespace Microsoft.CodeAnalysis.Razor.MapCode;
 
 internal interface IMapCodeService
 {
-    Task<WorkspaceEdit?> HandleMappingsAsync(VSInternalMapCodeMapping[] mappings, Guid mapCodeCorrelationId, CancellationToken cancellationToken);
+    Task<WorkspaceEdit?> MapCodeAsync(VSInternalMapCodeMapping[] mappings, Guid mapCodeCorrelationId, CancellationToken cancellationToken);
 }
