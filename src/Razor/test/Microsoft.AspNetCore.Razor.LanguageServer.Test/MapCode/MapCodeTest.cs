@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Razor.LanguageServer.Hosting;
 using Microsoft.AspNetCore.Razor.LanguageServer.MapCode;
 using Microsoft.AspNetCore.Razor.Telemetry;
 using Microsoft.AspNetCore.Razor.Test.Common.LanguageServer;
+using Microsoft.CodeAnalysis.ExternalAccess.Razor.Testing;
 using Microsoft.CodeAnalysis.Razor.ProjectSystem;
 using Microsoft.CodeAnalysis.Razor.Protocol;
 using Microsoft.CodeAnalysis.Testing;
@@ -53,13 +54,14 @@ public class MapCodeTest(ITestOutputHelper testOutput) : LanguageServerTestBase(
         await VerifyCodeMappingAsync(originalCode, [codeToMap], expectedCode);
     }
 
-    [Fact(Skip = "C# needs to implement + merge their LSP-based mapper before this test can pass")]
+    [Fact]
     public async Task HandleCSharpInsertionAsync()
     {
         var originalCode = """
                 @code
                 {
-                    public string Title { get; set; }$$
+                    public string Title { get; set; }
+                    $$
                 }
 
                 """;
@@ -67,25 +69,23 @@ public class MapCodeTest(ITestOutputHelper testOutput) : LanguageServerTestBase(
         var codeToMap = """
             @code
             {
-                public string Title { get; set; }
-
                 void M()
                 {
                     var x = 1;
                 }
             }
-
             """;
 
         var expectedCode = """
             @code
             {
                 public string Title { get; set; }
-            
+                
                 void M()
                 {
                     var x = 1;
                 }
+
             }
             
             """;
@@ -224,7 +224,7 @@ public class MapCodeTest(ITestOutputHelper testOutput) : LanguageServerTestBase(
         await VerifyCodeMappingAsync(originalCode, [codeToMap], expectedCode);
     }
 
-    [Fact(Skip = "C# needs to implement + merge their LSP-based mapper before this test can pass")]
+    [Fact(Skip = "This test doesn't seem to be possible without the real conversations DLLs")]
     public async Task HandleCodeBlockInsertionAsync()
     {
         var originalCode = """
@@ -278,12 +278,17 @@ public class MapCodeTest(ITestOutputHelper testOutput) : LanguageServerTestBase(
         Location[][]? locations = null)
     {
         // Arrange
-        TestFileMarkupParser.GetPositionAndSpans(originalCode, out var output, out int cursorPosition, out ImmutableArray<TextSpan> spans);
+        TestFileMarkupParser.GetPositionAndSpans(originalCode, out var output, out int cursorPosition, out ImmutableArray<TextSpan> _);
         var codeDocument = CreateCodeDocument(output, filePath: razorFilePath);
         var csharpSourceText = codeDocument.GetCSharpSourceText();
-        var csharpDocumentUri = new Uri(razorFilePath + "__virtual.g.cs");
+        var csharpDocumentUri = new Uri(FilePathService.GetRazorCSharpFilePath(default, razorFilePath));
+
         await using var csharpServer = await CSharpTestLspServerHelpers.CreateCSharpLspServerAsync(
-            csharpSourceText, csharpDocumentUri, new VSInternalServerCapabilities(), razorSpanMappingService: null, capabilitiesUpdater: null, DisposalToken);
+            csharpSourceText,
+            csharpDocumentUri,
+            new VSInternalServerCapabilities(),
+            tc => tc.AddParts(typeof(TestMapCodeService)),
+            DisposalToken);
         await csharpServer.OpenDocumentAsync(csharpDocumentUri, csharpSourceText.ToString());
 
         var documentContextFactory = new TestDocumentContextFactory(razorFilePath, codeDocument);
@@ -357,6 +362,8 @@ public class MapCodeTest(ITestOutputHelper testOutput) : LanguageServerTestBase(
             Assert.Equal(CustomMessageNames.RazorMapCodeEndpoint, method);
             var delegatedMapCodeParams = Assert.IsType<DelegatedMapCodeParams>(@params);
 
+            Convert(delegatedMapCodeParams.FocusLocations, csharpDocumentUri);
+
             var mappings = new VSInternalMapCodeMapping[]
             {
                 new() {
@@ -381,6 +388,17 @@ public class MapCodeTest(ITestOutputHelper testOutput) : LanguageServerTestBase(
             }
 
             return (TResponse)(object)result;
+        }
+
+        private void Convert(Location[][] focusLocations, Uri csharpDocumentUri)
+        {
+            foreach (var focusLocation in focusLocations)
+            {
+                foreach (var location in focusLocation)
+                {
+                    location.Uri = csharpDocumentUri;
+                }
+            }
         }
     }
 

@@ -29,7 +29,7 @@ public static class TestWorkspace
 
         var workspace = Create(hostServices);
 
-        AddAnalyzersToWorkspace(workspace, exportProvider);
+        AddAnalyzersToWorkspace(workspace);
 
         return workspace;
     }
@@ -38,9 +38,7 @@ public static class TestWorkspace
     {
         lock (s_workspaceLock)
         {
-            var workspace = services is null
-                ? new AdhocWorkspace()
-                : new AdhocWorkspace(services);
+            var workspace = new AdhocWorkspace(services ?? MefHostServices.DefaultHost, "Host");
 
             configure?.Invoke(workspace);
 
@@ -48,7 +46,7 @@ public static class TestWorkspace
         }
     }
 
-    private static void AddAnalyzersToWorkspace(Workspace workspace, ExportProvider exportProvider)
+    private static void AddAnalyzersToWorkspace(Workspace workspace)
     {
         var analyzerLoader = RazorTestAnalyzerLoader.CreateAnalyzerAssemblyLoader();
 

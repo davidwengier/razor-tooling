@@ -30,8 +30,29 @@ internal static class CSharpTestLspServerHelpers
         SourceText csharpSourceText,
         Uri csharpDocumentUri,
         VSInternalServerCapabilities serverCapabilities,
-        CancellationToken cancellationToken) =>
-        CreateCSharpLspServerAsync(csharpSourceText, csharpDocumentUri, serverCapabilities, new EmptyMappingService(), capabilitiesUpdater: null, cancellationToken);
+        Func<TestComposition, TestComposition> compositionUpdater,
+        CancellationToken cancellationToken)
+        => CreateCSharpLspServerAsync(
+            [(csharpDocumentUri, csharpSourceText)],
+            serverCapabilities,
+            new EmptyMappingService(),
+            multiTargetProject: false,
+            capabilitiesUpdater: null,
+            compositionUpdater,
+            cancellationToken);
+
+    public static Task<CSharpTestLspServer> CreateCSharpLspServerAsync(
+        SourceText csharpSourceText,
+        Uri csharpDocumentUri,
+        VSInternalServerCapabilities serverCapabilities,
+        CancellationToken cancellationToken)
+        => CreateCSharpLspServerAsync(
+            csharpSourceText,
+            csharpDocumentUri,
+            serverCapabilities,
+            new EmptyMappingService(),
+            capabilitiesUpdater: null,
+            cancellationToken);
 
     public static Task<CSharpTestLspServer> CreateCSharpLspServerAsync(
         SourceText csharpSourceText,
@@ -40,26 +61,42 @@ internal static class CSharpTestLspServerHelpers
         IRazorSpanMappingService razorSpanMappingService,
         Action<VSInternalClientCapabilities> capabilitiesUpdater,
         CancellationToken cancellationToken)
-    {
-        var files = new[]
-        {
-            (csharpDocumentUri, csharpSourceText)
-        };
+        => CreateCSharpLspServerAsync(
+            [(csharpDocumentUri, csharpSourceText)],
+            serverCapabilities,
+            razorSpanMappingService,
+            multiTargetProject: true,
+            capabilitiesUpdater,
+            cancellationToken);
 
-        return CreateCSharpLspServerAsync(files, serverCapabilities, razorSpanMappingService, multiTargetProject: true, capabilitiesUpdater, cancellationToken);
-    }
+    public static Task<CSharpTestLspServer> CreateCSharpLspServerAsync(
+        IEnumerable<(Uri Uri, SourceText SourceText)> files,
+        VSInternalServerCapabilities serverCapabilities,
+        IRazorSpanMappingService razorSpanMappingService,
+        bool multiTargetProject,
+        Action<VSInternalClientCapabilities> capabilitiesUpdater,
+        CancellationToken cancellationToken)
+        => CreateCSharpLspServerAsync(
+            files,
+            serverCapabilities,
+            razorSpanMappingService,
+            multiTargetProject,
+            capabilitiesUpdater,
+            compositionUpdater: tc => tc,
+            cancellationToken);
 
     public static async Task<CSharpTestLspServer> CreateCSharpLspServerAsync(
         IEnumerable<(Uri Uri, SourceText SourceText)> files,
         VSInternalServerCapabilities serverCapabilities,
         IRazorSpanMappingService razorSpanMappingService,
         bool multiTargetProject,
-         Action<VSInternalClientCapabilities> capabilitiesUpdater,
+        Action<VSInternalClientCapabilities> capabilitiesUpdater,
+        Func<TestComposition, TestComposition> compositionUpdater,
         CancellationToken cancellationToken)
     {
         var csharpFiles = files.Select(f => new CSharpFile(f.Uri, f.SourceText));
 
-        var exportProvider = TestComposition.Roslyn.ExportProviderFactory.CreateExportProvider();
+        var exportProvider = compositionUpdater(TestComposition.Roslyn).ExportProviderFactory.CreateExportProvider();
 
         var metadataReferences = await ReferenceAssemblies.Default.ResolveAsync(language: LanguageNames.CSharp, cancellationToken);
         metadataReferences = metadataReferences.Add(ReferenceUtil.AspNetLatestComponents);
