@@ -2,19 +2,19 @@
 // Licensed under the MIT license. See License.txt in the project root for license information.
 
 using Microsoft.AspNetCore.Razor.Language.Syntax;
-using Microsoft.CodeAnalysis.Razor.Workspaces;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.VisualStudio.LanguageServer.Protocol;
-using LSP = Microsoft.VisualStudio.LanguageServer.Protocol;
+using LspLocation = Microsoft.VisualStudio.LanguageServer.Protocol.Location;
+using RazorSyntaxNode = Microsoft.AspNetCore.Razor.Language.Syntax.SyntaxNode;
 
-namespace Microsoft.AspNetCore.Razor.LanguageServer.MapCode.Mappers;
+namespace Microsoft.CodeAnalysis.Razor.MapCode;
 
 internal static class InsertMapper
 {
     public static int? GetInsertionPoint(
-        SyntaxNode documentRoot,
+        RazorSyntaxNode documentRoot,
         SourceText sourceText,
-        LSP.Location focusArea)
+        LspLocation focusArea)
     {
         // If there's an specific focus area, or caret provided, we should try to insert as close as possible.
         // As long as the focused area is not empty.
@@ -33,9 +33,9 @@ internal static class InsertMapper
     }
 
     private static bool TryGetFocusedInsertionPoint(
-        SyntaxNode documentRoot,
+        RazorSyntaxNode documentRoot,
         SourceText sourceText,
-        LSP.Location focusArea,
+        LspLocation focusArea,
         out int insertionPoint)
     {
         // If there's an specific focus area, or caret provided, we should try to insert as close as possible.
@@ -78,7 +78,7 @@ internal static class InsertMapper
         return true;
     }
 
-    private static bool TryGetDefaultInsertionPoint(SyntaxNode documentRoot, out int insertionPoint)
+    private static bool TryGetDefaultInsertionPoint(RazorSyntaxNode documentRoot, out int insertionPoint)
     {
         // Our default insertion point is at the end of the document.
         insertionPoint = documentRoot.EndPosition;
