@@ -306,12 +306,15 @@ public static class RazorCodeDocumentExtensions
     public static bool TryComputeNamespace(this RazorCodeDocument document, bool fallbackToRootNamespace, out string @namespace)
         => TryComputeNamespace(document, fallbackToRootNamespace, out @namespace, out _);
 
+    public static bool TryComputeNamespace(this RazorCodeDocument document, bool fallbackToRootNamespace, out string @namespace, out SourceSpan? namespaceSpan)
+        => TryComputeNamespace(document, fallbackToRootNamespace, considerImports: true, out @namespace, out namespaceSpan);
+
     // In general documents will have a relative path (relative to the project root).
     // We can only really compute a nice namespace when we know a relative path.
     //
     // However all kinds of thing are possible in tools. We shouldn't barf here if the document isn't
     // set up correctly.
-    public static bool TryComputeNamespace(this RazorCodeDocument document, bool fallbackToRootNamespace, out string @namespace, out SourceSpan? namespaceSpan)
+    public static bool TryComputeNamespace(this RazorCodeDocument document, bool fallbackToRootNamespace, bool considerImports, out string @namespace, out SourceSpan? namespaceSpan)
     {
         if (document == null)
         {
@@ -319,13 +322,14 @@ public static class RazorCodeDocumentExtensions
         }
 
         var cachedNsInfo = document.Items[NamespaceKey];
-        if (cachedNsInfo is not null)
+        // We only want to cache the namespace if we're considering all possibilities. Anyone wanting something different (ie, tooling) has to pay a slight penalty.
+        if (cachedNsInfo is not null && fallbackToRootNamespace && considerImports)
         {
             (@namespace, namespaceSpan) = ((string, SourceSpan?))cachedNsInfo;
         }
         else
         {
-            var result = TryComputeNamespaceCore(document, fallbackToRootNamespace, out @namespace, out namespaceSpan);
+            var result = TryComputeNamespaceCore(document, fallbackToRootNamespace, considerImports, out @namespace, out namespaceSpan);
             if (result)
             {
                 document.Items[NamespaceKey] = (@namespace, namespaceSpan);
@@ -336,14 +340,14 @@ public static class RazorCodeDocumentExtensions
 #if DEBUG
         // In debug mode, even if we're cached, lets take the hit to run this again and make sure the cached value is correct.
         // This is to help us find issues with caching logic during development.
-        var validateResult = TryComputeNamespaceCore(document, fallbackToRootNamespace, out var validateNamespace, out _);
+        var validateResult = TryComputeNamespaceCore(document, fallbackToRootNamespace, considerImports, out var validateNamespace, out _);
         Debug.Assert(validateResult, "We couldn't compute the namespace, but have a cached value, so something has gone wrong");
         Debug.Assert(validateNamespace == @namespace, $"We cached a namespace of {@namespace} but calculated that it should be {validateNamespace}");
 #endif
 
         return true;
 
-        bool TryComputeNamespaceCore(RazorCodeDocument document, bool fallbackToRootNamespace, out string @namespace, out SourceSpan? namespaceSpan)
+        bool TryComputeNamespaceCore(RazorCodeDocument document, bool fallbackToRootNamespace, bool considerImports, out string @namespace, out SourceSpan? namespaceSpan)
         {
             var filePath = document.Source.FilePath;
             if (filePath == null || document.Source.RelativePath == null || filePath.Length < document.Source.RelativePath.Length)
@@ -359,7 +363,7 @@ public static class RazorCodeDocumentExtensions
             var lastNamespaceContent = string.Empty;
             namespaceSpan = null;
 
-            if (document.GetImportSyntaxTrees() is { IsDefault: false } importSyntaxTrees)
+            if (considerImports && document.GetImportSyntaxTrees() is { IsDefault: false } importSyntaxTrees)
             {
                 // ImportSyntaxTrees is usually set. Just being defensive.
                 foreach (var importSyntaxTree in importSyntaxTrees)
@@ -565,7 +569,7 @@ public static class RazorCodeDocumentExtensions
         {
             if (node != null && node.DirectiveDescriptor == NamespaceDirective.Directive)
             {
-                if (node.Body?.ChildNodes() is [_, CSharpCodeBlockSyntax { Children: [ _, CSharpSyntaxNode @namespace, ..] }])
+                if (node.Body?.ChildNodes() is [_, CSharpCodeBlockSyntax { Children: [_, CSharpSyntaxNode @namespace, ..] }])
                 {
                     LastNamespaceContent = @namespace.GetContent();
                     LastNamespaceLocation = @namespace.GetSourceSpan(_source);

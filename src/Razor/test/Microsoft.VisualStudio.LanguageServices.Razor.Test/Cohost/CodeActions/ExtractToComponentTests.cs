@@ -38,4 +38,78 @@ public class ExtractToComponentTests(FuseTestContext context, ITestOutputHelper 
                     </div>
                     """)]);
     }
+
+    [FuseFact]
+    public async Task ExtractNamespace()
+    {
+        await VerifyCodeActionAsync(
+            input: """
+                @namespace ILoveYou
+
+                <div></div>
+
+                [|<div>
+                    Hello World
+                </div>|]
+
+                <div></div>
+                """,
+            expected: """
+                @namespace ILoveYou
+
+                <div></div>
+
+                <Component />
+
+                <div></div>
+                """,
+            codeActionName: WorkspacesSR.ExtractTo_Component_Title,
+            additionalExpectedFiles: [
+                (FileUri("Component.razor"), """
+                    @namespace ILoveYou
+
+                    <div>
+                        Hello World
+                    </div>
+                    """)]);
+    }
+
+    [FuseFact]
+    public async Task ExtractNamespace_Pathological()
+    {
+        await VerifyCodeActionAsync(
+            input: """
+                @namespace DidYouEverKnow
+                @namespace ThatYoure
+                @namespace MyHero
+
+                <div></div>
+
+                [|<div>
+                    Hello World
+                </div>|]
+
+                <div></div>
+                """,
+            expected: """
+                @namespace DidYouEverKnow
+                @namespace ThatYoure
+                @namespace MyHero
+
+                <div></div>
+
+                <Component />
+
+                <div></div>
+                """,
+            codeActionName: WorkspacesSR.ExtractTo_Component_Title,
+            additionalExpectedFiles: [
+                (FileUri("Component.razor"), """
+                    @namespace MyHero
+
+                    <div>
+                        Hello World
+                    </div>
+                    """)]);
+    }
 }

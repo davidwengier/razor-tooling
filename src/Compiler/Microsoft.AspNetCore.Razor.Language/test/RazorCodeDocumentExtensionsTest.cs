@@ -471,6 +471,48 @@ public class RazorCodeDocumentExtensionsTest
     }
 
     [Fact]
+    public void TryComputeNamespace_IgnoresImportsNamespaceDirectiveWhenAsked()
+    {
+        // Arrange
+        var sourceDocument = TestRazorSourceDocument.Create(
+            filePath: "C:\\Hello\\Components\\Test.cshtml",
+            relativePath: "\\Components\\Test.cshtml");
+        var codeDocument = TestRazorCodeDocument.Create(sourceDocument, default);
+        codeDocument.SetFileKind(FileKinds.Component);
+        codeDocument.SetSyntaxTree(RazorSyntaxTree.Parse(sourceDocument, RazorParserOptions.Create(options =>
+        {
+            options.Directives.Add(NamespaceDirective.Directive);
+        })));
+
+        var importSourceDocument = TestRazorSourceDocument.Create(
+            content: "@namespace My.Custom.NS",
+            filePath: "C:\\Hello\\_Imports.razor",
+            relativePath: "\\_Imports.razor");
+        codeDocument.SetImportSyntaxTrees(new[]
+        {
+            RazorSyntaxTree.Parse(importSourceDocument, RazorParserOptions.Create(options =>
+            {
+                options.Directives.Add(NamespaceDirective.Directive);
+            }))
+        }.ToImmutableArray());
+
+        var documentNode = new DocumentIntermediateNode()
+        {
+            Options = RazorCodeGenerationOptions.Create(c =>
+            {
+                c.RootNamespace = "Hello.World";
+            })
+        };
+        codeDocument.SetDocumentIntermediateNode(documentNode);
+
+        // Act
+        codeDocument.TryComputeNamespace(fallbackToRootNamespace: true, considerImports: false, out var @namespace, out _);
+
+        // Assert
+        Assert.Equal("Hello.World.Components", @namespace);
+    }
+
+    [Fact]
     public void TryComputeNamespace_RespectsImportsNamespaceDirective_SameFolder()
     {
         // Arrange
