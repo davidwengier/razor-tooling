@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Razor;
 using Microsoft.AspNetCore.Razor.PooledObjects;
 using Microsoft.CodeAnalysis.Razor.CodeActions.Models;
+using Microsoft.CodeAnalysis.Razor.CodeActions.Razor;
 using Microsoft.CodeAnalysis.Razor.Formatting;
 using Microsoft.CodeAnalysis.Razor.Logging;
 using Microsoft.CodeAnalysis.Razor.ProjectSystem;
@@ -113,6 +114,12 @@ internal class CodeActionResolveService(
 
         var edit = await resolver.ResolveAsync(documentContext, data, options, cancellationToken).ConfigureAwait(false);
         codeAction.Edit = edit;
+
+        if (resolver is ExtractToComponentCodeActionResolver && edit is not null)
+        {
+            codeAction.Command = new Command() { CommandIdentifier = "razor/initiateRename" };
+        }
+
         return codeAction;
     }
 

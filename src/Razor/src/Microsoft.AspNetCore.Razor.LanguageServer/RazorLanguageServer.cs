@@ -223,6 +223,8 @@ internal partial class RazorLanguageServer : SystemTextJsonLanguageServer<RazorR
             services.AddHandler<WrapWithTagEndpoint>();
 
             services.AddHandlerWithCapabilities<MapCodeEndpoint>();
+
+            services.AddHandlerWithCapabilities<CommandEndpoint>();
         }
     }
 }
